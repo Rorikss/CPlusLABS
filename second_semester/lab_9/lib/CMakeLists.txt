@@ -1,0 +1,1 @@
+add_library(adapters Adapters.h Adapters.cpp Iterators.h Ranges.h)
