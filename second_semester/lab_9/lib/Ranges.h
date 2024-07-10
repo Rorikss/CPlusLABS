@@ -8,19 +8,15 @@
 #include "Iterators.h"
 
 namespace adapters {
-// check for associativity using SFINAE
-template <typename Container, typename = void>
-struct IsAssociative : std::false_type {};
+template <typename Container>
+concept IsAssociative = requires(Container c) {
+    typename Container::key_type;
+};
 
 template <typename Container>
-struct IsAssociative<Container, std::void_t<typename Container::key_type>> : std::true_type {};
-
-// check for node type using SFINAE
-template <typename Container, typename = void>
-struct IsNodeContainer : std::false_type {};
-
-template <typename Container>
-struct IsNodeContainer<Container, std::void_t<typename Container::mapped_type>> : std::true_type {};
+concept IsNodeContainer = requires(Container c) {
+    typename Container::mapped_type;
+};
 
 // range container implementation
 template<typename Iterator, typename RangeIterator, typename Container, typename Functor = std::nullptr_t>
@@ -67,8 +63,8 @@ public:
 
 private:
     void DoStaticAsserts() {
-        static_assert(IsForwardBased<Iterator>(), "Iterator should be at least forward!");
-        static_assert(!IsNodeContainer<std::remove_reference_t<Container>>::value, "unable to work with pair values!");
+        static_assert(ForwardIterator<Iterator>, "Iterator should be at least forward!");
+        static_assert(!IsNodeContainer<std::remove_reference_t<Container>>, "unable to work with pair values!");
     }
 
     Iterator begin_;
@@ -87,7 +83,7 @@ class AssociativeRange {
 public:
     class AssociativeIterator {
     public:
-        using iterator_category = std::conditional_t<IsReversible<Iterator>(), std::bidirectional_iterator_tag, std::forward_iterator_tag>;
+        using iterator_category = std::conditional_t<ReversibleIterator<Iterator>, std::bidirectional_iterator_tag, std::forward_iterator_tag>;
         using difference_type = typename std::iterator_traits<Iterator>::difference_type;
         using value_type = typename std::iterator_traits<Iterator>::value_type;
         using pointer = typename std::iterator_traits<Iterator>::pointer;
@@ -98,7 +94,7 @@ public:
                 {}
 
         auto operator*() {
-            if constexpr (IsNodeContainer<std::remove_reference_t<Container>>::value) {
+            if constexpr (IsNodeContainer<std::remove_reference_t<Container>>) {
                 if constexpr (std::is_same_v<Functor, keys>) {
                     return it_->first;
                 } else if constexpr (std::is_same_v<Functor, values>) {
@@ -120,13 +116,13 @@ public:
             return old;
         }
 
-        template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+        template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
         AssociativeIterator& operator--() {
             --it_;
             return *this;
         }
 
-        template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+        template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
         AssociativeIterator operator--(int) {
             AssociativeIterator old = *this;
             operator--();
@@ -161,8 +157,8 @@ public:
 
 private:
     void DoStaticAsserts() {
-        static_assert(IsForwardBased<Iterator>(), "Iterator should be at least forward!");
-        static_assert(IsAssociative<std::remove_reference_t<Container>>::value, "Not an associative container");
+        static_assert(ForwardIterator<Iterator>, "Iterator should be at least forward!");
+        static_assert(IsAssociative<std::remove_reference_t<Container>>, "Not an associative container");
     }
 
     Container& cont_;

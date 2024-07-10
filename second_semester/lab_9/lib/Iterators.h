@@ -4,32 +4,36 @@
 #pragma once
 #include <iostream>
 #include <iterator>
+#include <concepts>
 
 namespace adapters {
 
-// check if iterator is reversible
-template<typename Iterator>
-constexpr bool IsReversible() {
-        return std::is_base_of_v<std::bidirectional_iterator_tag, typename Iterator::iterator_category>;
-}
+template <typename Iterator>
+concept ForwardIterator = requires(Iterator it) {
+    { it++ } -> std::convertible_to<const Iterator&>;
+    { *it++ } -> std::same_as<std::iter_reference_t<Iterator>>;
+};
 
-template<typename Iterator>
-constexpr bool IsForwardBased() {
-    return std::is_base_of_v<std::forward_iterator_tag, typename Iterator::iterator_category>;
-}
+template <typename Iterator>
+concept ReversibleIterator = ForwardIterator<Iterator> && requires(Iterator it) {
+    { --it } -> std::same_as<Iterator&>;
+};
 
 // iterators for adapters
 template<typename Iterator, typename UnaryFunction>
 class TransformIterator {
 public:
-    using iterator_category = std::conditional_t<IsReversible<Iterator>(), std::bidirectional_iterator_tag, std::forward_iterator_tag>;
+    using iterator_category = std::conditional_t<ReversibleIterator<Iterator>, std::bidirectional_iterator_tag, std::forward_iterator_tag>;
     using difference_type = typename std::iterator_traits<Iterator>::difference_type;
     using value_type = typename std::iterator_traits<Iterator>::value_type;
     using pointer = typename std::iterator_traits<Iterator>::pointer;
     using reference = typename std::iterator_traits<Iterator>::reference;
 
     TransformIterator(Iterator it, Iterator end, UnaryFunction func)
-            : it_(it), end_(end), func_(func) {}
+            : it_(it)
+            , end_(end)
+            , func_(func)
+            {}
 
     auto operator*() {
         return func_(*it_);
@@ -46,13 +50,13 @@ public:
         return old;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     TransformIterator& operator--() {
         --it_;
         return *this;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     TransformIterator operator--(int) {
         TransformIterator old = *this;
         operator--();
@@ -72,7 +76,7 @@ private:
 template<typename Iterator, typename Predicate>
 class FilterIterator {
 public:
-    using iterator_category = std::conditional_t<IsReversible<Iterator>(), std::bidirectional_iterator_tag, std::forward_iterator_tag>;
+    using iterator_category = std::conditional_t<ReversibleIterator<Iterator>, std::bidirectional_iterator_tag, std::forward_iterator_tag>;
     using difference_type = typename std::iterator_traits<Iterator>::difference_type;
     using value_type = typename std::iterator_traits<Iterator>::value_type;
     using pointer = typename std::iterator_traits<Iterator>::pointer;
@@ -80,7 +84,10 @@ public:
 
 
     FilterIterator(Iterator it, Iterator end, Predicate pred)
-            : it_(it), begin_(it), end_(end), pred_(pred) {
+            : it_(it)
+            , begin_(it)
+            , end_(end)
+            , pred_(pred) {
         while (it_ != end_ && !pred_(*it_)) {
             ++it_;
         }
@@ -103,7 +110,7 @@ public:
         return old;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     FilterIterator& operator--() {
         do {
             --it_;
@@ -111,7 +118,7 @@ public:
         return *this;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     FilterIterator operator--(int) {
         FilterIterator old = *this;
         operator--();
@@ -132,14 +139,15 @@ private:
 template<typename Iterator>
 class TakeAndDropIterator {
 public:
-    using iterator_category = std::conditional_t<IsReversible<Iterator>(), std::bidirectional_iterator_tag, std::forward_iterator_tag>;
+    using iterator_category = std::conditional_t<ReversibleIterator<Iterator>, std::bidirectional_iterator_tag, std::forward_iterator_tag>;
     using difference_type = typename std::iterator_traits<Iterator>::difference_type;
     using value_type = typename std::iterator_traits<Iterator>::value_type;
     using pointer = typename std::iterator_traits<Iterator>::pointer;
     using reference = typename std::iterator_traits<Iterator>::reference;
 
     TakeAndDropIterator(Iterator it)
-            : it_(it) {}
+            : it_(it)
+            {}
 
     auto operator*() {
         return *it_;
@@ -156,13 +164,13 @@ public:
         return old;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     TakeAndDropIterator& operator--() {
         --it_;
         return *this;
     }
 
-    template<typename T = Iterator, typename = std::enable_if_t<IsReversible<T>()>>
+    template<typename T = Iterator, typename = std::enable_if_t<ReversibleIterator<T>>>
     TakeAndDropIterator operator--(int) {
         TakeAndDropIterator old = *this;
         operator--();
@@ -187,7 +195,8 @@ public:
     using reference = typename std::iterator_traits<Iterator>::reference;
 
     ReverseIterator(Iterator it)
-            : it_(it) {}
+            : it_(it)
+            {}
 
     auto operator*() {
         return *(std::prev(it_));

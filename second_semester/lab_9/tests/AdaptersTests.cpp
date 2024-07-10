@@ -66,6 +66,7 @@ TEST(AdaptersTestSuite, ReverseVectorDefaultTest) {
 TEST(AdaptersTestSuite, DoubleReverseVectorTest) {
     std::vector<char> v = {'a', 'b', 'c', 'd'};
     auto transformed = v | reverse() | reverse();
+
     std::stringstream output;
     for (auto x : transformed) {
         output << x;

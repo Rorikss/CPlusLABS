@@ -87,7 +87,7 @@ public:
 
     template<typename Range>
     auto MakeAdapter(Range&& range) {
-        static_assert(IsReversible<decltype(std::begin(range))>(), "Not reversible container!");
+        static_assert(ReversibleIterator<decltype(std::begin(range))>, "Not reversible container!"); // todo make concept!!
         return RangeContainer<decltype(std::begin(range)),
                 ReverseIterator<decltype(std::begin(range))>, Range>(
                 std::end(range), std::begin(range), range);
